@@ -47,6 +47,28 @@ const normalModeButton = document.getElementById('easy-mode-button');
 const hardModeButton = document.getElementById('hard-mode-button');
 const modeSelectionDiv = document.getElementById('mode-selection');
 
+// Leaderboard elements
+const leaderboardModal = document.getElementById('leaderboard-modal');
+const leaderboardContainer = document.getElementById('leaderboard-container');
+const leaderboardTitle = document.getElementById('leaderboard-title');
+const viewLeaderboardButton = document.getElementById('view-leaderboard-button');
+const closeLeaderboardButton = document.getElementById('close-leaderboard');
+
+// Username modal elements
+const usernameModal = document.getElementById('username-modal');
+const usernameInput = document.getElementById('username-input');
+const editNameButton = document.getElementById('edit-name-button');
+const closeUsernameModal = document.getElementById('close-username-modal');
+const saveUsernameButton = document.getElementById('save-username-button');
+
+// Supabase config
+const SUPABASE_URL = 'https://jhzsyzeiojuahoeqptvj.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpoenN5emVpb2p1YWhvZXFwdHZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUzNjY1NjcsImV4cCI6MjA4MDk0MjU2N30.4bUWDsZYo-pT4_K5uiby6q12RmtY1prSwHG54GknC-4';
+const SUPABASE_TABLE = 'scores';
+
+// Username storage key
+const USERNAME_KEY = 'ColorSwipe_Username';
+let currentUsername = null;
 
 // --- 3. High Score and Initialization Logic ---
 
@@ -75,6 +97,7 @@ function hideLoadingScreen() {
         loadingScreen.style.display = 'none';
         gameContainer.style.display = 'flex'; 
         endGame("COLOR SWIPE MATCH"); 
+        overlayMessage.textContent = '';
     }, 500); 
 }
 
@@ -84,12 +107,12 @@ function hideLoadingScreen() {
 function selectMode(mode) {
     gameMode = mode;
     // Visually indicate which mode is selected
+    normalModeButton.classList.remove('active-normal', 'active-hard');
+    hardModeButton.classList.remove('active-normal', 'active-hard');
     if (mode === 'HARD') {
-        hardModeButton.style.backgroundColor = '#FF4500';
-        normalModeButton.style.backgroundColor = '#555';
+        hardModeButton.classList.add('active-hard');
     } else {
-        normalModeButton.style.backgroundColor = '#00ff88';
-        hardModeButton.style.backgroundColor = '#555';
+        normalModeButton.classList.add('active-normal');
     }
     startButton.textContent = `START GAME`;
     
@@ -97,9 +120,305 @@ function selectMode(mode) {
     loadHighScore();
     
     // Update the overlay high score display if it's visible
-    overlayHighScoreElement.innerHTML = `High Score: <span class="high-score-number">${highScore}</span>`;
+    overlayHighScoreElement.textContent = `${highScore}`;
 }
 
+// --- 3b. Leaderboard Functions ---
+
+function loadUsername() {
+    // Load username from localStorage if it exists
+    currentUsername = localStorage.getItem(USERNAME_KEY);
+    
+    if (currentUsername) {
+        usernameInput.value = currentUsername;
+    }
+}
+
+function saveUsername() {
+    const username = usernameInput.value.trim().substring(0, 12);
+    
+    if (username.length > 0) {
+        currentUsername = username;
+        localStorage.setItem(USERNAME_KEY, currentUsername);
+    } else {
+        currentUsername = 'Anonymous';
+    }
+    
+    return currentUsername;
+}
+
+async function isUsernameTaken(newUsername) {
+    try {
+        const response = await fetch(
+            `${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?username=eq.${encodeURIComponent(newUsername)}&select=username`,
+            {
+                method: 'GET',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': `Bearer ${SUPABASE_KEY}`
+                }
+            }
+        );
+        
+        if (!response.ok) {
+            console.error('Error checking username:', response.status, response.statusText);
+            return false;
+        }
+        
+        const data = await response.json();
+        
+        // Check if any rows exist with this username
+        // data will be an array, if length > 0 then username exists
+        return Array.isArray(data) && data.length > 0;
+    } catch (error) {
+        console.error('Failed to check username availability:', error);
+        return false;
+    }
+}
+
+async function updateAllPastUserScores(oldUsername, newUsername) {
+    try {
+        const response = await fetch(
+            `${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?username=eq.${encodeURIComponent(oldUsername)}`,
+            {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': `Bearer ${SUPABASE_KEY}`,
+                    'Prefer': 'return=minimal'
+                },
+                body: JSON.stringify({
+                    username: newUsername
+                })
+            }
+        );
+        
+        if (!response.ok) {
+            console.error('Error updating past scores:', response.status, response.statusText);
+            return false;
+        }
+        
+        return true;
+    } catch (error) {
+        console.error('Failed to update past scores:', error);
+        return false;
+    }
+}
+
+async function handleNameChange() {
+    // Retrieve the old username from localStorage
+    const oldUsername = localStorage.getItem(USERNAME_KEY);
+    
+    // Get the new username from the input field
+    const newUsername = usernameInput.value.trim().substring(0, 12);
+    
+    // Validate the new username
+    if (!newUsername || newUsername.length === 0) {
+        alert('Please enter a valid name.');
+        return;
+    }
+    
+    // Check if the name is actually different
+    if (newUsername === oldUsername) {
+        // Name hasn't changed, just close the modal
+        hideUsernameModal();
+        return;
+    }
+    
+    // Check if the username is already taken
+    const isTaken = await isUsernameTaken(newUsername);
+    
+    if (isTaken) {
+        alert('That name is already in use. Please choose another name.');
+        return;
+    }
+    
+    // Update localStorage with the new name
+    currentUsername = newUsername;
+    localStorage.setItem(USERNAME_KEY, currentUsername);
+    
+    // Update all past scores in the database if there was an old username
+    if (oldUsername && oldUsername !== 'Anonymous' && oldUsername.length > 0) {
+        await updateAllPastUserScores(oldUsername, newUsername);
+    }
+    
+    // Close the modal
+    hideUsernameModal();
+}
+
+function getUsernameForSubmission() {
+    // Get current value from input
+    const username = usernameInput.value.trim().substring(0, 12);
+    return username.length > 0 ? username : 'Anonymous';
+}
+
+async function migrateOldScores() {
+    try {
+        // Find all scores without a username that also have an id
+        const response = await fetch(
+            `${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?username=is.null&id=!is.null&select=id`,
+            {
+                method: 'GET',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': `Bearer ${SUPABASE_KEY}`
+                }
+            }
+        );
+        
+        if (!response.ok) {
+            console.error('Error fetching old scores:', response.status, response.statusText);
+            return;
+        }
+        
+        const oldScores = await response.json();
+        
+        if (!Array.isArray(oldScores) || oldScores.length === 0) {
+            console.log('No old scores to migrate');
+            return; // No old scores to migrate
+        }
+        
+        console.log('Found ' + oldScores.length + ' old scores to migrate');
+        
+        // Update all old scores with valid ids to have a default username
+        const updateResponse = await fetch(
+            `${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?username=is.null&id=!is.null`,
+            {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': `Bearer ${SUPABASE_KEY}`,
+                    'Prefer': 'return=minimal'
+                },
+                body: JSON.stringify({
+                    username: 'Player'
+                })
+            }
+        );
+        
+        if (updateResponse.ok) {
+            console.log('Successfully migrated old scores');
+        } else {
+            console.error('Error updating old scores:', updateResponse.status, updateResponse.statusText);
+        }
+    } catch (error) {
+        console.error('Error migrating old scores:', error);
+    }
+}
+
+async function submitScoreToLeaderboard(username, score, mode) {
+    try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`
+            },
+            body: JSON.stringify({
+                username: username,
+                score: score,
+                mode: mode
+            })
+        });
+        
+        if (!response.ok) {
+            console.error('Error submitting score:', response.status, response.statusText);
+            return false;
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Failed to submit score to leaderboard:', error);
+        return false;
+    }
+}async function fetchAndDisplayLeaderboard() {
+    try {
+        const query = `order=score.desc&mode=eq.${gameMode}&limit=10`;
+        const response = await fetch(
+            `${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?${query}`,
+            {
+                method: 'GET',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': `Bearer ${SUPABASE_KEY}`
+                }
+            }
+        );
+        
+        if (!response.ok) {
+            leaderboardContainer.innerHTML = `<p class="leaderboard-error">Failed to load leaderboard (${response.status})</p>`;
+            return;
+        }
+        
+        const scores = await response.json();
+        
+        if (!Array.isArray(scores) || scores.length === 0) {
+            leaderboardContainer.innerHTML = '<p class="leaderboard-empty">No scores yet. Be the first!</p>';
+            return;
+        }
+        
+        // Build leaderboard table
+        let html = '<table class="leaderboard-table"><thead><tr><th>#</th><th>Player</th><th>Score</th></tr></thead><tbody>';
+        
+        scores.forEach((entry, index) => {
+            const rank = index + 1;
+            const rankClass = rank <= 3 ? `rank-${rank} top-3` : '';
+            // Use the username from the database - all scores should have one now
+            const username = entry.username || 'Player';
+            const scoreValue = entry.score || 0;
+            
+            html += `
+                <tr>
+                    <td class="leaderboard-rank ${rankClass}">${rank}</td>
+                    <td class="leaderboard-username">${escapeHtml(username)}</td>
+                    <td class="leaderboard-score">${scoreValue}</td>
+                </tr>
+            `;
+        });
+        
+        html += '</tbody></table>';
+        leaderboardContainer.innerHTML = html;
+    } catch (error) {
+        console.error('Error fetching leaderboard:', error);
+        leaderboardContainer.innerHTML = '<p class="leaderboard-error">Error loading leaderboard</p>';
+    }
+}
+
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+function showLeaderboard() {
+    leaderboardModal.classList.add('show');
+    const modeLabel = gameMode === 'HARD' ? 'Hard Mode' : 'Normal Mode';
+    leaderboardTitle.textContent = modeLabel;
+    // Always fetch fresh data when opening the leaderboard
+    fetchAndDisplayLeaderboard();
+}
+
+function hideLeaderboard() {
+    leaderboardModal.classList.remove('show');
+}
+
+function showUsernameModal() {
+    usernameModal.classList.add('show');
+    usernameInput.value = currentUsername || '';
+    usernameInput.focus();
+}
+
+function hideUsernameModal() {
+    usernameModal.classList.remove('show');
+}
 
 // --- 4. Core Game Functions ---
 
@@ -111,6 +430,7 @@ function startGame() {
     isFirstGame = false; 
     
     overlay.style.display = 'none';
+    overlayMessage.textContent = '';
     promptText.textContent = "SWIPE!";
     colorBlock.style.backgroundColor = '#6a6a6a'; 
     updateScoreDisplay(); 
@@ -208,6 +528,12 @@ function checkInput(playerDirection) {
     if (playerDirection === currentChallenge.requiredDirection) {
         score++;
         updateScoreDisplay();
+        
+        // Add enlarge animation to color block
+        colorBlock.classList.remove('enlarge');
+        void colorBlock.offsetWidth; // Trigger reflow to restart animation
+        colorBlock.classList.add('enlarge');
+        
         adjustDifficulty();
         generateNewChallenge();
     } else {
@@ -239,10 +565,13 @@ function endGame(reason) {
         message = "Incorrect Swipe! Try Again."; 
     } else if (reason === "TIME UP!") {
         message = "Time's Up! Too Slow.";
+    } else if (reason === "COLOR SWIPE MATCH") {
+        message = '';
     }
 
     // SIMPLIFIED ANNOUNCEMENT
     overlayMessage.textContent = message;
+    overlayMessage.style.display = 'block';
     
     // Final score display with new high score tag (USING CSS CLASS)
     let scoreText = `SCORE: ${score}`;
@@ -254,7 +583,7 @@ function endGame(reason) {
     finalScoreElement.style.display = 'block'; 
     
     // High Score display
-    overlayHighScoreElement.innerHTML = `High Score: <span class="high-score-number">${highScore}</span>`; 
+    overlayHighScoreElement.textContent = `${highScore}`; 
     overlayHighScoreElement.style.display = 'block'; 
 
     startButton.textContent = `START GAME`; 
@@ -264,6 +593,12 @@ function endGame(reason) {
     
     // Load high score again to update the top status bar display
     loadHighScore(); 
+    
+    // Submit score to leaderboard if score > 0
+    if (score > 0) {
+        const username = getUsernameForSubmission();
+        submitScoreToLeaderboard(username, score, gameMode);
+    }
 }
 
 
@@ -281,6 +616,32 @@ closeInstructionsButton.addEventListener('click', () => {
 // --- Mode Selection Listeners (unchanged) ---
 normalModeButton.addEventListener('click', () => selectMode('NORMAL'));
 hardModeButton.addEventListener('click', () => selectMode('HARD'));
+
+// --- Leaderboard Listeners ---
+viewLeaderboardButton.addEventListener('click', () => showLeaderboard());
+closeLeaderboardButton.addEventListener('click', () => hideLeaderboard());
+leaderboardModal.addEventListener('click', (e) => {
+    if (e.target === leaderboardModal) {
+        hideLeaderboard();
+    }
+});
+
+// --- Username Modal Listeners ---
+editNameButton.addEventListener('click', () => showUsernameModal());
+closeUsernameModal.addEventListener('click', () => hideUsernameModal());
+saveUsernameButton.addEventListener('click', () => {
+    handleNameChange();
+});
+usernameModal.addEventListener('click', (e) => {
+    if (e.target === usernameModal) {
+        hideUsernameModal();
+    }
+});
+usernameInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        handleNameChange();
+    }
+});
 
 // Touch listeners (unchanged)
 function handleTouchStart(e) { touchstartX = e.changedTouches[0].screenX; touchstartY = e.changedTouches[0].screenY;}
@@ -315,7 +676,9 @@ gameContainer.addEventListener('touchstart', handleTouchStart);
 gameContainer.addEventListener('touchend', handleTouchEnd);
 startButton.addEventListener('click', startGame);
 
-window.onload = () => {
+window.onload = async () => {
     selectMode('NORMAL');
+    loadUsername();
+    await migrateOldScores(); 
     hideLoadingScreen(); 
 };
