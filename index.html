@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Color Swipe Match</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    
+    <div id="loading-screen">
+        <div class="loader"></div>
+        <h1 style="color: #00ff88;">COLOR SWIPE MATCH</h1>
+    </div>
+
+    <div id="game-container" style="display: none;">
+        
+        <div id="status-bar">
+            <span id="score-display">Score: 0</span>
+            <span id="high-score-display">High Score: 0</span>
+            <span id="timer-display">Time: 1.50s</span>
+        </div>
+
+        <div id="challenge-area">
+            <div id="prompt-text">GET READY</div> 
+            <div id="color-block"></div> 
+        </div>
+
+        <div id="instructions-container">
+            <div id="instructions">
+                <h3>Swipe Mapping:</h3>
+                <p>Match the **color** to its direction:</p>
+                <div class="mapping-grid">
+                    <div>🔴: UP</div> 
+                    <div>🟢: DOWN</div>
+                    <div>🔵: LEFT</div>
+                    <div>🟡: RIGHT</div>
+                </div>
+                <button id="close-instructions">Close</button>
+            </div>
+        </div>
+
+        <div id="overlay">
+            <h2 id="overlay-message">COLOR SWIPE MATCH</h2>
+            
+            <p id="final-score" style="display: none;">SCORE: 0</p>
+            <p id="overlay-high-score" style="display: none;">High Score: 0</p>
+            
+            <div id="mode-selection" style="display: flex; gap: 15px; margin-top: 20px;">
+                <button id="easy-mode-button" class="mode-button">NORMAL MODE</button> 
+                <button id="hard-mode-button" class="mode-button">HARD MODE</button>
+            </div>
+            
+            <button id="start-button">START GAME</button>
+            <button id="instructions-button">Instructions</button>
+        </div>
+        
+    </div>
+
+    <script src="script.js" defer></script>
+</body>
+</html>
