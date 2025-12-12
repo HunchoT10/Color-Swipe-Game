@@ -1,0 +1,5 @@
+{
+  "name": "Color Swipe Match",
+  "description": "A fast-paced reaction game. Swipe the direction corresponding to the block's color. Watch out for distractions in Hard Mode!",
+  "requestFramePermissions": []
+}

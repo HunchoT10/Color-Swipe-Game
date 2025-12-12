@@ -1,130 +1,65 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
     <title>Color Swipe Match</title>
-    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&family=Courier+New:wght@700&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Montserrat', 'sans-serif'],
+              mono: ['"Courier New"', 'monospace'],
+            },
+            colors: {
+              game: {
+                bg: '#0b0b0d',
+                green: '#00ff88',
+                red: '#ff5f52',
+                blue: '#2a8bff',
+                dark: '#14161a',
+                panel: 'rgba(20, 23, 28, 0.95)',
+              }
+            },
+            animation: {
+              'pulse-fast': 'pulse 0.4s cubic-bezier(0.4, 0, 0.6, 1)',
+              'pop': 'pop 0.2s ease-out forwards',
+            },
+            keyframes: {
+              pop: {
+                '0%': { transform: 'scale(1)' },
+                '50%': { transform: 'scale(1.1)' },
+                '100%': { transform: 'scale(1)' },
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        background-color: #0b0b0d;
+        overflow: hidden;
+        touch-action: none; /* Prevent browser swipe navigation */
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
 </head>
-<body>
-    
-    <div id="loading-screen">
-        <div class="loader"></div>
-        <h1 style="color: #00ff88;">COLOR SWIPE MATCH</h1>
-    </div>
-
-    <div id="game-container" style="display: none;">
-        
-        <div id="status-bar">
-            <span id="score-display">Score: 0</span>
-            <span id="high-score-display">High Score: 0</span>
-            <span id="timer-display">Time: 1.50s</span>
-        </div>
-
-        <div id="challenge-area">
-            <div id="prompt-text">GET READY</div> 
-            <div id="color-block"></div> 
-        </div>
-
-        <div id="instructions-container">
-            <div id="instructions">
-                <h3>How To Play</h3>
-                <p>Match the BLOCK COLOR to the correct direction. Ignore the text in hard mode!</p>
-                <div class="mapping-grid">
-                    <div>🔴: UP</div> 
-                    <div>🟢: DOWN</div>
-                    <div>🔵: LEFT</div>
-                    <div>🟡: RIGHT</div>
-                </div>
-                <button id="close-instructions">Close</button>
-            </div>
-        </div>
-
-        <div id="overlay">
-            <div class="overlay-panel">
-                <div class="app-title">
-                    <span class="title-top">COLOR</span>
-                    <span class="title-bottom">SWIPE</span>
-                </div>
-
-                <h2 id="overlay-message"></h2>
-                
-                <p id="final-score" style="display: none;">SCORE: 0</p>
-                
-                <div id="mode-selection" class="mode-row">
-                    <button id="easy-mode-button" class="mode-card active">
-                        <span class="mode-label">NORMAL</span>
-                        <span class="mode-desc">Match Color</span>
-                    </button> 
-                    <button id="hard-mode-button" class="mode-card">
-                        <span class="mode-label">HARD</span>
-                        <span class="mode-desc">Brain Teaser</span>
-                    </button>
-                </div>
-                
-                <button id="start-button" class="primary-cta">
-                    <span class="cta-icon">▶</span>
-                    <span class="cta-text">START GAME</span>
-                </button>
-
-                <div class="info-row">
-                    <div class="info-card" id="high-score-card">
-                        <span class="info-icon">🏆</span>
-                        <div class="info-text">
-                            <span class="info-label">High Score</span>
-                            <span id="overlay-high-score" class="info-value high-score-number">0</span>
-                        </div>
-                    </div>
-                    <div id="instructions-button" class="info-card link-card">
-                        <span class="info-icon">ⓘ</span>
-                        <div class="info-text">
-                            <span class="info-label">Guide</span>
-                            <span class="info-value">How to play</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="leaderboard-button-row" class="leaderboard-button-row">
-                    <button id="view-leaderboard-button" class="info-card link-card">
-                        <span class="info-icon">📊</span>
-                        <div class="info-text">
-                            <span class="info-label">Leaderboard</span>
-                            <span class="info-value">Top Scores</span>
-                        </div>
-                    </button>
-                </div>
-                
-                <button id="edit-name-button" class="edit-name-button">✏️ Edit Name</button>
-            </div>
-        </div>
-
-        <div id="leaderboard-modal" class="leaderboard-modal">
-            <div class="leaderboard-panel">
-                <div class="leaderboard-header">
-                    <h3 id="leaderboard-title">Leaderboard</h3>
-                    <button id="close-leaderboard" class="close-leaderboard">✕</button>
-                </div>
-                <div id="leaderboard-container" class="leaderboard-container">
-                    <p>Loading leaderboard...</p>
-                </div>
-            </div>
-        </div>
-
-        <div id="username-modal" class="username-modal">
-            <div class="username-modal-panel">
-                <div class="username-modal-header">
-                    <h3>Edit Name</h3>
-                    <button id="close-username-modal" class="close-username-modal">✕</button>
-                </div>
-                <div class="username-modal-content">
-                    <input type="text" id="username-input" class="username-input" placeholder="Enter your name" maxlength="12">
-                    <button id="save-username-button" class="save-username-button">Save</button>
-                </div>
-            </div>
-        </div>
-        
-    </div>
-
-    <script src="script.js" defer></script>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
 </body>
 </html>
