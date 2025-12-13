@@ -7,7 +7,8 @@ import {
   Pencil,
   Target,
   Flame,
-  Zap
+  Zap,
+  WifiOff
 } from 'lucide-react';
 
 import { 
@@ -27,7 +28,8 @@ import { GameMode, Challenge, Direction } from './types';
 import { 
   submitScore, 
   checkUsernameAvailability, 
-  updatePlayerNameHistory 
+  updatePlayerNameHistory,
+  syncOfflineScores
 } from './services/supabaseService';
 import Leaderboard from './components/Leaderboard';
 import Instructions from './components/Instructions';
@@ -57,6 +59,9 @@ export default function App() {
   
   // For INSANE mode visuals (to hide specific completed blocks)
   const [completedBlockIds, setCompletedBlockIds] = useState<string[]>([]);
+  
+  // Network State
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   // Modals
   const [showLeaderboard, setShowLeaderboard] = useState(false);
@@ -83,9 +88,34 @@ export default function App() {
     // Load initial high score and username
     loadHighScore('NORMAL');
     loadUsername();
+    
+    // Try to sync any offline scores immediately on boot
+    syncOfflineScores();
 
-    return () => clearTimeout(timer);
+    // Network listeners
+    const handleStatusChange = () => {
+      const online = navigator.onLine;
+      setIsOnline(online);
+      if (online) {
+        syncOfflineScores();
+      }
+    };
+    window.addEventListener('online', handleStatusChange);
+    window.addEventListener('offline', handleStatusChange);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('online', handleStatusChange);
+      window.removeEventListener('offline', handleStatusChange);
+    };
   }, []);
+
+  // Sync when opening leaderboard
+  useEffect(() => {
+    if (showLeaderboard && isOnline) {
+      syncOfflineScores();
+    }
+  }, [showLeaderboard, isOnline]);
 
   const loadHighScore = (mode: GameMode) => {
     const saved = localStorage.getItem(`${BASE_HIGH_SCORE_KEY}${mode}`);
@@ -104,12 +134,14 @@ export default function App() {
 
   const handleSaveName = async (newName: string) => {
     // Check if taken
-    const isTaken = await checkUsernameAvailability(newName);
-    if (isTaken) return false;
+    if (isOnline) {
+      const isTaken = await checkUsernameAvailability(newName);
+      if (isTaken) return false;
 
-    // Update history
-    if (username && username !== 'Anonymous') {
-      await updatePlayerNameHistory(username, newName);
+      // Update history
+      if (username && username !== 'Anonymous') {
+        await updatePlayerNameHistory(username, newName);
+      }
     }
 
     localStorage.setItem(USERNAME_KEY, newName);
@@ -208,6 +240,7 @@ export default function App() {
     setIsNewHighScore(isNewHigh);
 
     // Leaderboard Submission
+    // Modified: removed isOnline check so we attempt submit (and save offline if needed)
     if (score > 0) {
       let finalName = username;
       if (finalName === 'Anonymous') {
@@ -570,13 +603,22 @@ export default function App() {
             </div>
             
             <button 
-              onClick={() => setShowLeaderboard(true)}
-              className="w-full mt-3 bg-[#1a1d23] border border-white/5 rounded-xl p-3 flex items-center gap-3 hover:bg-[#252830] transition-colors"
+              onClick={() => isOnline && setShowLeaderboard(true)}
+              disabled={!isOnline}
+              className={`w-full mt-3 bg-[#1a1d23] border border-white/5 rounded-xl p-3 flex items-center gap-3 transition-colors ${
+                !isOnline ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#252830]'
+              }`}
             >
-               <BarChart2 className="text-purple-400" size={18} />
+               {isOnline ? (
+                 <BarChart2 className="text-purple-400" size={18} />
+               ) : (
+                 <WifiOff className="text-gray-500" size={18} />
+               )}
                <div className="flex flex-col items-start">
                   <span className="text-[10px] uppercase text-gray-500 font-bold">Rankings</span>
-                  <span className="text-xs font-bold text-white">Global Leaderboard</span>
+                  <span className="text-xs font-bold text-white">
+                    {isOnline ? 'Global Leaderboard' : 'Offline Mode'}
+                  </span>
                </div>
             </button>
             
